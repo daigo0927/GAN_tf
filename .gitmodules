@@ -1,0 +1,3 @@
+[submodule "tfmodule"]
+	path = tfmodule
+	url = https://github.com/daigo0927/DeepModules-tf.git
