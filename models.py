@@ -7,8 +7,6 @@ from tfmodule.modules import Conv2D, Conv2DTranspose, PlainBlock, BottleneckBloc
 class _Genrerator(object):
     def __init__(self, z_dim, image_size, name = 'generator'):
         self.z_dim = z_dim
-        assert image_size[0]&(image_size[0]-1)==0 and image_size[1]&(image_size[1]-1)==0
-        assert image_size[0] == image_size[1]
         self.image_size = image_size
         self.name = name
 
@@ -34,7 +32,7 @@ class GoodGenerator(_Genrerator):
             x = PlainBlock(4*64, 2*64, (3, 3), resample = 'up')(x)
             x = PlainBlock(2*64, 1*64, (3, 3), resample = 'up')(x)
 
-            add_up = np.log2(self.image_size[0]/64, dtype = np.uint8)
+            add_up = np.log2(self.image_size/64, dtype = np.uint8)
             for i in range(add_up):
                 x = PlainBlock(1*64, 1*64, (3, 3), resample = 'up')(x)
 
@@ -61,7 +59,7 @@ class DCGANGenerator(_Genrerator):
             x = tf.nn.relu(x)
 
             out_channels = 4*64
-            num_up = np.log2(self.image_size[0]/4, dtype = np.uint8)
+            num_up = np.log2(self.image_size/4, dtype = np.uint8)
             for i in range(num_up-1):
                 x = tf.layers.Conv2DTranspose(out_channels, (5, 5), (2, 2), 'same',
                                               kernel_initializer = self.init)(x)
@@ -78,8 +76,6 @@ class DCGANGenerator(_Genrerator):
 
 class _Dicriminator(object):
     def __init__(self, image_size, name = 'discriminator'):
-        assert image_size[0]&(image_size[0]-1)==0 and image_size[1]&(image_size[1]-1)==0
-        assert image_size[0] == image_size[1]
         self.image_size = image_size
         self.name = name
         
@@ -102,7 +98,7 @@ class GoodDiscriminator(_Dicriminator):
 
             x = Conv2D(3, 64, (3, 3), kernel_initializer = None)(x)
             
-            add_down = np.log2(self.image_size[0]/64, dtype = np.uint8)
+            add_down = np.log2(self.image_size/64, dtype = np.uint8)
             for i in range(add_dow):
                 x = PlainBlock(1*64, 1*64, (3, 3), resample = 'down')(x)
                 
@@ -132,7 +128,7 @@ class DCGANDiscriminator(_Dicriminator):
             x = tf.nn.leaky_relu(x, 0.2)
 
             out_channels = 32
-            num_down = np.log2(self.image_size[0]/4, dtype = np.uint8)
+            num_down = np.log2(self.image_size/4, dtype = np.uint8)
             for i in range(num_down-1):
                 x = tf.layers.Conv2D(max(out_channels, 64), (5, 5), (2, 2), 'same',
                                      kernel_initializer = self.init)(x)
@@ -143,3 +139,33 @@ class DCGANDiscriminator(_Dicriminator):
             x = tf.layers.flatten(x)
             x = tf.layers.Dense(1)(x)
             return x
+
+
+# Auxiliary classifier GAN by ResNet discriminator
+class ACGANDiscriminator(_Dicriminator):
+    def __init__(self, image_size, num_classes = None, name = 'discriminator'):
+        super().__init__(image_size, name)
+        assert num_classes is not None, 'num_classes must be specified'
+        self.num_classes = num_classes
+        
+    def __call__(self, x, reuse = True):
+        with tf.variable_scope(self.name) as vs:
+            if reuse:
+                vs.reuse_variables()
+
+            x = Conv2D(3, 64, (3, 3), kernel_initializer = None)(x)
+            
+            add_down = np.log2(self.image_size/64, dtype = np.uint8)
+            for i in range(add_dow):
+                x = PlainBlock(1*64, 1*64, (3, 3), resample = 'down')(x)
+                
+            x = PlainBlock(1*64, 2*64, (3, 3), resample = 'down')(x)
+            x = PlainBlock(2*64, 4*64, (3, 3), resample = 'down')(x)
+            x = PlainBlock(4*64, 8*64, (3, 3), resample = 'down')(x)
+            x = PlainBlock(8*64, 8*64, (3, 3), resample = 'down')(x)
+
+            x = tf.layers.flatten(x)
+            class_ = tf.layers.Dense(self.num_classes)(x)
+            
+            x = tf.layers.Dense(1)(x)
+            return x, class_
