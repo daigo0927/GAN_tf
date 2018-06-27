@@ -4,7 +4,7 @@ import tensorflow as tf
 import torch
 from torch.utils import data
 
-from dataset import get_dataset
+# from datautils.utils import get_dataset
 
 class AbstractTrainer(object):
     def __init__(self, args):
@@ -17,7 +17,7 @@ class AbstractTrainer(object):
 
     def _build_dataloader(self):
         dataset = get_dataset(self.args.dataset)
-        d_set = dataset(self.args.dataset_dir,
+        d_set = dataset(self.args.dataset_dir, 'train',
                         self.args.crop_type, self.args.crop_shape,
                         self.args.resize_shape, self.args.resize_scale)
         self.num_batches = int(len(d_set.samples)/self.args.batch_size)
@@ -33,6 +33,9 @@ class AbstractTrainer(object):
         pass
 
     def pred(self, num_samples = 9):
+        pass
+
+    def save_samples(self):
         pass
 
 
