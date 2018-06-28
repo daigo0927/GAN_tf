@@ -67,7 +67,7 @@ class ACGANTrainer(AbstractTrainer):
 
     def train(self):
         for e in range(self.args.n_epoch):
-            for i, (images, labels) in enumerate(self.d_loader):
+            for b, (images, labels) in enumerate(self.d_loader):
 
                 images = images.numpy()/127.5 - 1.
                 labels = labels.numpy()
@@ -105,7 +105,7 @@ class ACGANTrainer(AbstractTrainer):
         images_fake = self.sess.run(self.x_, feed_dict = {self.z:randoms, self.class_:labels})
         return images_fake
 
-    def save_samples(images_fake, class_name = None, epoch = None, batch = None):
+    def save_samples(self, images_fake, class_name = None, epoch = None, batch = None):
         assert images_fake.ndim == 4
         images_fake = combine_images(images_fake)
         images_fake = images_fake*127.5 + 127.5
