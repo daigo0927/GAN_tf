@@ -67,7 +67,7 @@ class ACGANTrainer(AbstractTrainer):
 
     def train(self):
         for e in range(self.args.n_epoch):
-            for b, (images, labels) in enumerate(self.d_loader):
+            for i, (images, labels) in enumerate(self.d_loader):
 
                 images = images.numpy()/127.5 - 1.
                 labels = labels.numpy()
@@ -84,12 +84,12 @@ class ACGANTrainer(AbstractTrainer):
 
                 if i%100 == 0:
                     images_fake = self.pred(self.args.sample_class, 9)
-                    self.save_samples(images_fake, self.args.sample_class, e+1, b+1)
+                    self.save_samples(images_fake, self.args.sample_class, e+1, i+1)
 
             print()
             if not os.path.exists('./model_ACGAN'):
                 os.mkdir('/model_ACGAN')
-            self.saver.save(self.sess, f'/model_ACGAN/model_{str(e+1).zfill(3).ckpt}')
+            self.saver.save(self.sess, f'/model_ACGAN/model_{str(e+1).zfill(3)}.ckpt')
 
     def pred(self, class_name = None, num_samples = 9):
         randoms = np.random.uniform(-1, 1, (num_samples, self.args.z_dim))
@@ -112,8 +112,6 @@ class ACGANTrainer(AbstractTrainer):
         
         if not os.path.exists('./samples_ACGAN'):
             os.mkdir('./samples_ACGAN')
-        Image.fromarray(images_fake.astype(np.uint8))\
-          .save(f'./samples_ACGAN/sample_')
 
         filename = './samples_ACGAN/sample'
         if class_name is not None:
