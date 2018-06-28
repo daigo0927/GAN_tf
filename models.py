@@ -27,14 +27,14 @@ class GoodGenerator(_Genrerator):
             x = tf.layers.Dense(4*4*8*64)(z)
             x = tf.reshape(x, [-1, 4, 4, 8*64])
 
-            x = PlainBlock(8*64, 8*64, (3, 3), resample = 'up')(x)
-            x = PlainBlock(8*64, 4*64, (3, 3), resample = 'up')(x)
-            x = PlainBlock(4*64, 2*64, (3, 3), resample = 'up')(x)
-            x = PlainBlock(2*64, 1*64, (3, 3), resample = 'up')(x)
+            x = PlainBlock(8*64, 8*64, (3, 3), resample = 'up', name = 'plain_0')(x)
+            x = PlainBlock(8*64, 4*64, (3, 3), resample = 'up', name = 'plain_1')(x)
+            x = PlainBlock(4*64, 2*64, (3, 3), resample = 'up', name = 'plain_2')(x)
+            x = PlainBlock(2*64, 1*64, (3, 3), resample = 'up', name = 'plain_3')(x)
 
-            add_up = np.log2(self.image_size/64, dtype = np.uint8)
+            add_up = np.log2(self.image_size/64).astype(np.uint8)
             for i in range(add_up):
-                x = PlainBlock(1*64, 1*64, (3, 3), resample = 'up')(x)
+                x = PlainBlock(1*64, 1*64, (3, 3), resample = 'up', name = f'plain_{4+i}')(x)
 
             x = tf.layers.BatchNormalization()(x)
             x = tf.nn.relu(x)
@@ -59,7 +59,7 @@ class DCGANGenerator(_Genrerator):
             x = tf.nn.relu(x)
 
             out_channels = 4*64
-            num_up = np.log2(self.image_size/4, dtype = np.uint8)
+            num_up = np.log2(self.image_size/4).astype(np.uint8)
             for i in range(num_up-1):
                 x = tf.layers.Conv2DTranspose(out_channels, (5, 5), (2, 2), 'same',
                                               kernel_initializer = self.init)(x)
@@ -98,14 +98,14 @@ class GoodDiscriminator(_Dicriminator):
 
             x = Conv2D(3, 64, (3, 3), kernel_initializer = None)(x)
             
-            add_down = np.log2(self.image_size/64, dtype = np.uint8)
-            for i in range(add_dow):
-                x = PlainBlock(1*64, 1*64, (3, 3), resample = 'down')(x)
+            add_down = np.log2(self.image_size/64).astype(np.uint8)
+            for i in range(add_down):
+                x = PlainBlock(1*64, 1*64, (3, 3), resample = 'down', name = f'plain_{i}')(x)
                 
-            x = PlainBlock(1*64, 2*64, (3, 3), resample = 'down')(x)
-            x = PlainBlock(2*64, 4*64, (3, 3), resample = 'down')(x)
-            x = PlainBlock(4*64, 8*64, (3, 3), resample = 'down')(x)
-            x = PlainBlock(8*64, 8*64, (3, 3), resample = 'down')(x)
+            x = PlainBlock(1*64, 2*64, (3, 3), resample = 'down', name = f'plain_{add_down}')(x)
+            x = PlainBlock(2*64, 4*64, (3, 3), resample = 'down', name = f'plain_{add_down+1}')(x)
+            x = PlainBlock(4*64, 8*64, (3, 3), resample = 'down', name = f'plain_{add_down+2}')(x)
+            x = PlainBlock(8*64, 8*64, (3, 3), resample = 'down', name = f'plain_{add_down+3}')(x)
 
             x = tf.layers.flatten(x)
             x = tf.layers.Dense(1)(x)
@@ -128,7 +128,7 @@ class DCGANDiscriminator(_Dicriminator):
             x = tf.nn.leaky_relu(x, 0.2)
 
             out_channels = 32
-            num_down = np.log2(self.image_size/4, dtype = np.uint8)
+            num_down = np.log2(self.image_size/4).astype(np.uint8)
             for i in range(num_down-1):
                 x = tf.layers.Conv2D(max(out_channels, 64), (5, 5), (2, 2), 'same',
                                      kernel_initializer = self.init)(x)
@@ -155,14 +155,14 @@ class ACGANDiscriminator(_Dicriminator):
 
             x = Conv2D(3, 64, (3, 3), kernel_initializer = None)(x)
             
-            add_down = np.log2(self.image_size/64, dtype = np.uint8)
-            for i in range(add_dow):
-                x = PlainBlock(1*64, 1*64, (3, 3), resample = 'down')(x)
+            add_down = np.log2(self.image_size/64).astype(np.uint8)
+            for i in range(add_down):
+                x = PlainBlock(1*64, 1*64, (3, 3), resample = 'down', name = f'plain_{i}')(x)
                 
-            x = PlainBlock(1*64, 2*64, (3, 3), resample = 'down')(x)
-            x = PlainBlock(2*64, 4*64, (3, 3), resample = 'down')(x)
-            x = PlainBlock(4*64, 8*64, (3, 3), resample = 'down')(x)
-            x = PlainBlock(8*64, 8*64, (3, 3), resample = 'down')(x)
+            x = PlainBlock(1*64, 2*64, (3, 3), resample = 'down', name = f'plain_{add_down}')(x)
+            x = PlainBlock(2*64, 4*64, (3, 3), resample = 'down', name = f'plain_{add_down+1}')(x)
+            x = PlainBlock(4*64, 8*64, (3, 3), resample = 'down', name = f'plain_{add_down+2}')(x)
+            x = PlainBlock(8*64, 8*64, (3, 3), resample = 'down', name = f'plain_{add_down+3}')(x)
 
             x = tf.layers.flatten(x)
             class_ = tf.layers.Dense(self.num_classes)(x)

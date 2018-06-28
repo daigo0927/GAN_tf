@@ -4,7 +4,7 @@ import tensorflow as tf
 import torch
 from torch.utils import data
 
-# from datautils.utils import get_dataset
+from datahandler.utils import get_dataset
 
 class AbstractTrainer(object):
     def __init__(self, args):
@@ -21,6 +21,9 @@ class AbstractTrainer(object):
                         self.args.crop_type, self.args.crop_shape,
                         self.args.resize_shape, self.args.resize_scale)
         self.num_batches = int(len(d_set.samples)/self.args.batch_size)
+        if hasattr(d_set, 'classes'):
+            self.classes = d_set.classes
+            self.num_classes = len(d_set.classes)
         self.d_loader = data.DataLoader(d_set, shuffle = True,
                                         batch_size = self.args.batch_size,
                                         num_workers = self.args.num_workers,

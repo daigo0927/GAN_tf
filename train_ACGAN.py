@@ -16,13 +16,13 @@ class ACGANTrainer(AbstractTrainer):
     def _build_graph(self):
         self.z = tf.placeholder(tf.float32, shape = (None, self.args.z_dim),
                                 name = 'z')
-        self.class_ = tf.placeholder(tf.float32, shape = (None, self.d_loader.num_classes), name = 'class')
+        self.class_ = tf.placeholder(tf.float32, shape = (None, self.num_classes), name = 'class')
         self.x = tf.placeholder(tf.float32, shape = (None, self.args.image_size, self.args.image_size, 3),
                                 name = 'x')
 
-        input_dim = self.args.z_dim+self.d_loader.num_classes
+        input_dim = self.args.z_dim+self.num_classes
         self.gen = GoodGenerator(input_dim, self.args.image_size)
-        self.disc = ACGANDiscriminator(self.args.image_size, self.d_loader.num_classes)
+        self.disc = ACGANDiscriminator(self.args.image_size, self.num_classes)
 
         # fake sampels
         inputs = tf.concat([self.z, self.class_], axis = 1)
@@ -36,7 +36,8 @@ class ACGANTrainer(AbstractTrainer):
         self.d_real = tf.reduce_mean(d_real)
         self.d_fake = tf.reduce_mean(d_fake)
 
-        alpha = tf.random.uniform((self.args.batch_size, 1, 1, 1), minval = 0., maxval = 1.)
+        alpha = tf.random_uniform((self.args.batch_size, 1, 1, 1), minval = 0., maxval = 1.)
+        x_interp = alpha*self.x + (1. - alpha)*self.x_
         gradients = tf.gradients(self.disc(x_interp), [x_interp])[0]
         slopes = tf.sqrt(tf.reduce_sum(tf.square(gradients), axis = 3))
         gradient_penalty = tf.reduce_mean((slopes -1.)**2)
@@ -72,7 +73,7 @@ class ACGANTrainer(AbstractTrainer):
                 labels = labels.numpy()
                 randoms = np.random.uniform(-1, 1, (self.args.batch_size, self.args.z_dim))
                 _, d_real, d_fake = self.sess.run([self.d_opt, self.d_real, self.d_fake],
-                                                  feed_dict = {self.z:random, self.x:images, self.class_:labels})
+                                                  feed_dict = {self.z:randoms, self.x:images, self.class_:labels})
 
                 if i%self.args.n_critic == 0:
                     randoms = np.random.uniform(-1, 1, (self.args.batch_size, self.args.z_dim))
@@ -93,11 +94,11 @@ class ACGANTrainer(AbstractTrainer):
     def pred(self, class_name = None, num_samples = 9):
         randoms = np.random.uniform(-1, 1, (num_samples, self.args.z_dim))
         if class_name is not None:
-            assert class_name in self.d_loader.classes
-            label = np.where(np.array(self.d_loader.classes) == class_name, 1, 0)
+            assert class_name in self.classes
+            label = np.where(np.array(self.classes) == class_name, 1, 0)
             labels = np.array([label for _ in range(num_samples)])
         else:
-            label = np.zeros(self.d_loader.num_classes)
+            label = np.zeros(self.num_classes)
             label[0] = 1
             labels = np.array([np.random.permutation(label) for _ in range(num_samples)])
 
@@ -118,9 +119,9 @@ class ACGANTrainer(AbstractTrainer):
         if class_name is not None:
             filename += f'_{class_name}'
         if epoch is not None:
-            filename += f'_{str(e).zfill(3)}'
+            filename += f'_{str(epoch).zfill(3)}'
         if batch is not None:
-            filename += f'_{str(i).zfill(4)}'
+            filename += f'_{str(batch).zfill(4)}'
         filename += '.png'
         Image.fromarray(images_fake.astype(np.uint8)).save(filename)
 
@@ -134,10 +135,10 @@ if __name__ == '__main__':
     parser.add_argument('--sample_class', type = str, default = None,
                         help = 'Class of sampling fake images [None]')
     args = parser.parse_args()
-    for key, item in vars(args).item():
+    for key, item in vars(args).items():
         print(f'{key} : {item}')
 
     os.environ['CUDA_VISIBLE_DEVICES'] = input('Input utilize gpu-id (-1:cpu) : ')
 
-    trainer = Trainer(args)
+    trainer = ACGANTrainer(args)
     trainer.train()
