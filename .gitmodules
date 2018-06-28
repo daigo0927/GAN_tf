@@ -1,3 +1,6 @@
 [submodule "tfmodule"]
 	path = tfmodule
 	url = https://github.com/daigo0927/DeepModules-tf.git
+[submodule "datahandler"]
+	path = datahandler
+	url = https://github.com/daigo0927/DataUtils.git
