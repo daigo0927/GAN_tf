@@ -68,16 +68,16 @@ class ACGANTrainer(AbstractTrainer):
     def train(self):
         for e in range(self.args.n_epoch):
             for i, (images, labels) in enumerate(self.d_loader):
-
                 images = images.numpy()/127.5 - 1.
                 labels = labels.numpy()
-                randoms = np.random.uniform(-1, 1, (self.args.batch_size, self.args.z_dim))
-                _, d_real, d_fake = self.sess.run([self.d_opt, self.d_real, self.d_fake],
-                                                  feed_dict = {self.z:randoms, self.x:images, self.class_:labels})
 
-                if i%self.args.n_critic == 0:
+                for _ in range(self.args.n_critic):
                     randoms = np.random.uniform(-1, 1, (self.args.batch_size, self.args.z_dim))
-                    _ = self.sess.run(self.g_opt, feed_dict = {self.z:randoms, self.class_:labels})
+                    _, d_real, d_fake = self.sess.run([self.d_opt, self.d_real, self.d_fake],
+                                                      feed_dict = {self.z:randoms, self.x:images, self.class_:labels})
+
+                randoms = np.random.uniform(-1, 1, (self.args.batch_size, self.args.z_dim))
+                _ = self.sess.run(self.g_opt, feed_dict = {self.z:randoms, self.class_:labels})
 
                 if i%10 == 0:
                     show_progress(e+1, i+1, self.num_batches, d_real-d_fake, None)
@@ -88,7 +88,7 @@ class ACGANTrainer(AbstractTrainer):
 
             print()
             if not os.path.exists('./model_ACGAN'):
-                os.mkdir('/model_ACGAN')
+                os.mkdir('./model_ACGAN')
             self.saver.save(self.sess, f'/model_ACGAN/model_{str(e+1).zfill(3)}.ckpt')
 
     def pred(self, class_name = None, num_samples = 9):
