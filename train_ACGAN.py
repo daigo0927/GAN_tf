@@ -4,7 +4,7 @@ import numpy as np
 import tensorflow as tf
 from PIL import Image
 
-from models import GoodGenerator, ACGANDiscriminator
+from models import DCGANGenerator, ACGANDiscriminator
 from train_util import AbstractTrainer, get_parser
 from misc import combine_images, show_progress
 
@@ -21,7 +21,7 @@ class ACGANTrainer(AbstractTrainer):
                                 name = 'x')
 
         input_dim = self.args.z_dim+self.num_classes
-        self.gen = GoodGenerator(input_dim, self.args.image_size)
+        self.gen = DCGANGenerator(input_dim, self.args.image_size)
         self.disc = ACGANDiscriminator(self.args.image_size, self.num_classes)
 
         # fake sampels
@@ -32,20 +32,11 @@ class ACGANTrainer(AbstractTrainer):
         d_real, class_real = self.disc(self.x, reuse = False)
         d_fake, class_fake = self.disc(self.x_)
 
-        # Wasserstein distance and gradient penalty --------------------
-        self.d_real = tf.reduce_mean(d_real)
-        self.d_fake = tf.reduce_mean(d_fake)
+        d_loss_real = tf.reduce_mean(tf.losses.sigmoid_cross_entropy(tf.ones_like(d_real), d_real))
+        d_loss_fake = tf.reduce_mean(tf.losses.sigmoid_cross_entropy(tf.zeros_like(d_fake), d_fake))
+        self.d_loss = d_loss_real + d_loss_real
+        self.g_loss = tf.reduce_mean(tf.losses.sigmoid_cross_entropy(tf.ones_like(d_fake), d_fake))
 
-        alpha = tf.random_uniform((self.args.batch_size, 1, 1, 1), minval = 0., maxval = 1.)
-        x_interp = alpha*self.x + (1. - alpha)*self.x_
-        gradients = tf.gradients(self.disc(x_interp), [x_interp])[0]
-        slopes = tf.sqrt(tf.reduce_sum(tf.square(gradients), axis = 3))
-        gradient_penalty = tf.reduce_mean((slopes -1.)**2)
-        
-        self.d_loss = self.d_fake - self.d_real + self.args.lambda_*gradient_penalty
-        self.g_loss = -self.d_fake
-        # -------------------------- Wasserstein distance
-        
         # auxiliary classifier loss ----------
         c_real_loss = tf.losses.softmax_cross_entropy(self.class_, class_real)
         c_fake_loss = tf.losses.softmax_cross_entropy(self.class_, class_fake)
@@ -71,16 +62,14 @@ class ACGANTrainer(AbstractTrainer):
                 images = images.numpy()/127.5 - 1.
                 labels = labels.numpy()
 
-                for _ in range(self.args.n_critic):
-                    randoms = np.random.uniform(-1, 1, (self.args.batch_size, self.args.z_dim))
-                    _, d_real, d_fake = self.sess.run([self.d_opt, self.d_real, self.d_fake],
-                                                      feed_dict = {self.z:randoms, self.x:images, self.class_:labels})
-
                 randoms = np.random.uniform(-1, 1, (self.args.batch_size, self.args.z_dim))
+                _, d_loss = self.sess.run([self.d_opt, self.d_loss],
+                                          feed_dict = {self.z:randoms, self.x:images, self.class_:labels})
+
                 _ = self.sess.run(self.g_opt, feed_dict = {self.z:randoms, self.class_:labels})
 
                 if i%10 == 0:
-                    show_progress(e+1, i+1, self.num_batches, d_real-d_fake, None)
+                    show_progress(e+1, i+1, self.num_batches, d_loss, None)
 
                 if i%100 == 0:
                     images_fake = self.pred(self.args.sample_class, 9)
@@ -89,7 +78,7 @@ class ACGANTrainer(AbstractTrainer):
             print()
             if not os.path.exists('./model_ACGAN'):
                 os.mkdir('./model_ACGAN')
-            self.saver.save(self.sess, f'/model_ACGAN/model_{str(e+1).zfill(3)}.ckpt')
+            self.saver.save(self.sess, f'./model_ACGAN/model_{str(e+1).zfill(3)}.ckpt')
 
     def pred(self, class_name = None, num_samples = 9):
         randoms = np.random.uniform(-1, 1, (num_samples, self.args.z_dim))

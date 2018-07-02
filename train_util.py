@@ -19,7 +19,8 @@ class AbstractTrainer(object):
         dataset = get_dataset(self.args.dataset)
         d_set = dataset(self.args.dataset_dir, 'train',
                         self.args.crop_type, self.args.crop_shape,
-                        self.args.resize_shape, self.args.resize_scale)
+                        self.args.resize_shape, self.args.resize_scale,
+                        self.args.use_label)
         self.num_batches = int(len(d_set.samples)/self.args.batch_size)
         if hasattr(d_set, 'classes'):
             self.classes = d_set.classes
@@ -68,6 +69,8 @@ def get_parser():
 
     parser.add_argument('--z_dim', type = int, default = 128,
                         help = 'z (fake seed) dimension [128]')
+    parser.add_argument('--use_label', action = 'store_true',
+                        help = 'Stored option for label utilization')
 
     parser.add_argument('--resume', type = str, default = None,
                         help = 'Learned parameter checkpoint [None]')

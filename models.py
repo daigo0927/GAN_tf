@@ -52,7 +52,7 @@ class DCGANGenerator(_Genrerator):
 
     def __call__(self, z):
         with tf.variable_scope(self.name) as vs:
-            x = tf.layers.Dense(4*4*8*128)(z)
+            x = tf.layers.Dense(4*4*8*64)(z)
             x = tf.reshape(x, [-1, 4, 4, 8*64])
             if self.bn:
                 x = tf.layers.BatchNormalization()(x)
@@ -66,7 +66,7 @@ class DCGANGenerator(_Genrerator):
                 if self.bn:
                     x = tf.layers.BatchNormalization()(x)
                 x = tf.nn.relu(x)
-                out_channels = max(out_channels/2, 64)
+                out_channels = max(out_channels//2, 64)
 
             x = tf.layers.Conv2DTranspose(3, (5, 5), (2, 2), 'same',
                                           kernel_initializer = self.init)(x)
@@ -141,31 +141,33 @@ class DCGANDiscriminator(_Dicriminator):
             return x
 
 
-# Auxiliary classifier GAN by ResNet discriminator
+# Auxiliary classifier GAN 
 class ACGANDiscriminator(_Dicriminator):
     def __init__(self, image_size, num_classes = None, name = 'discriminator'):
         super().__init__(image_size, name)
         assert num_classes is not None, 'num_classes must be specified'
         self.num_classes = num_classes
+        self.init = tf.initializers.random_normal(stddev = 0.02)
         
     def __call__(self, x, reuse = True):
         with tf.variable_scope(self.name) as vs:
             if reuse:
                 vs.reuse_variables()
 
-            x = Conv2D(3, 64, (3, 3), kernel_initializer = None)(x)
-            
-            add_down = np.log2(self.image_size/64).astype(np.uint8)
-            for i in range(add_down):
-                x = PlainBlock(1*64, 1*64, (3, 3), resample = 'down', name = f'plain_{i}')(x)
-                
-            x = PlainBlock(1*64, 2*64, (3, 3), resample = 'down', name = f'plain_{add_down}')(x)
-            x = PlainBlock(2*64, 4*64, (3, 3), resample = 'down', name = f'plain_{add_down+1}')(x)
-            x = PlainBlock(4*64, 8*64, (3, 3), resample = 'down', name = f'plain_{add_down+2}')(x)
-            x = PlainBlock(8*64, 8*64, (3, 3), resample = 'down', name = f'plain_{add_down+3}')(x)
+            x = tf.layers.Conv2D(64, (5, 5), strides = (2, 2),
+                                 kernel_initializer = self.init)(x)
+            x = tf.nn.leaky_relu(x, 0.2)
 
+            out_channels = 32
+            num_down = np.log2(self.image_size/4).astype(np.uint8)
+            for i in range(num_down-1):
+                x = tf.layers.Conv2D(max(out_channels, 64), (5, 5), (2, 2), 'same',
+                                     kernel_initializer = self.init)(x)
+                x = tf.layers.BatchNormalization()(x)
+                x = tf.nn.leaky_relu(x, 0.2)
+                out_channels *= 2
+                
             x = tf.layers.flatten(x)
             class_ = tf.layers.Dense(self.num_classes)(x)
-            
-            x = tf.layers.Dense(1)(x)
+            x = tf.layers.Dense(1)(x) # logits of real or fake
             return x, class_
